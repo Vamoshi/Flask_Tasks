@@ -34,14 +34,17 @@ from flask import Flask, redirect, request
 from urllib import parse
 import requests
 import base64
+from db import *
 
 app = Flask(__name__)
 
+# TODO: Make into class
 client_id = "23B236"
 client_secret = "07bdd4ade65de85abc9247e752cd49fc"
 auth_base_url = "https://www.fitbit.com/oauth2/authorize"
 token_base_url = "https://api.fitbit.com/oauth2/token"
 flask_base_url = "http://127.0.0.1:5000"
+userId = []
 
 
 @app.route('/')
@@ -89,13 +92,47 @@ def code():
         }
     )
 
-    status = f"status:{req.status_code}"
+    # # get response status
+    # status = f"status:{req.status_code}"
+    # print(status)
 
+    # get response as json
     data = req.json()
 
+    # TODOS: CHECK IF ACCESS TOKEN IS ABOUT TO EXPIRE
+
+    # cache userID
+    userId.append(data["user_id"])
+
+    # get user
+    user = getUserDetails(data["user_id"])
+
+    # if user doesn't exist, create new user
+    if(user == None):
+        print("IM INSIDE")
+        setUser(
+            data["user_id"],
+            data["access_token"],
+            data["expires_in"],
+            data["refresh_token"],
+            data["scope"]
+        )
+
+    return redirect('/access')
+
+
+@app.route('/access')
+def access():
+    result = ''
+    try:
+        result = getUserDetails(userId[0])
+    except error:
+        result = None
+        print(error)
+
     return f"""
-    <h1>{status}</h1>
-    <h1>{data}</h1>
+    <h1>UserId = {userId[0]}</h1>
+    <h1>User is {result}</h1>
     <h1></h1>
     """
 
