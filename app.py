@@ -18,6 +18,10 @@ token_base_url = "https://api.fitbit.com/oauth2/token"
 flask_base_url = "http://127.0.0.1:5000"
 redirect_url = f"{flask_base_url}/fitbit/code"
 parsed_redirect_url = parse.quote_plus(redirect_url)
+fitbit_api_url = "https://api.fitbit.com"
+user_1_url = "1/user/-"
+user_1_1_url = "1.1/user/-"
+user_1_2_url = "1.2/user/-"
 
 # # # Fitbit Application Secrets:
 # # Practice 2
@@ -74,7 +78,7 @@ def index():
 
 @app.route('/fitbit/crossroad/<route>')
 # This is the only endpoint accessible by flutter
-#
+# ASK HOW TO PASS VARIABLES VIA THIS ROUTE!!
 def crossroad(route):
     # Store route
     Mutable.route = route
@@ -124,8 +128,8 @@ def refresh():
 
     print("REFRESHED TOKEN! USER JSON IS ================ ", userJson)
 
-    return redirect(f'/fitbit/access')
-    # return redirect(f'/fitbit/{Mutable.route}')
+    # return redirect(f'/fitbit/access')
+    return redirect(f'/fitbit/{Mutable.route}')
 
 
 @app.route('/fitbit/consent')
@@ -185,8 +189,8 @@ def code():
         print("Tokens are different, updating user")
         updateUser(Mutable.userId, userJson)
 
-    return redirect('/fitbit/access')
-    # return redirect(f'/fitbit/{Mutable.route}')
+    # return redirect('/fitbit/access')
+    return redirect(f'/fitbit/{Mutable.route}')
 
 
 @app.route('/fitbit/access')
@@ -199,6 +203,31 @@ def access():
         <h1>Refresh Token: {result.refresh_token}</h1>
         <h1>Access Token requested on {result.time_fetched}</h1>
         <h1></h1>
+    """
+
+# Routes to fetch data from fitbit api
+
+
+@app.route('/fitbit/profile')
+def profile():
+    user = getUser(Mutable.userId)
+    req = requests.get(
+        f"{fitbit_api_url}/{user_1_url}/profile.json",
+        headers={
+            'Authorization': f'Bearer {user.access_token}'
+        }
+    )
+
+    if(req.status_code != 200):
+        raise Exception(f"Error: {req.json()}")
+
+    profileJson = req.json()
+    profile = profileJson["user"]
+
+    return f"""
+        <h1>
+            {profile}
+        </h1>
     """
 
 

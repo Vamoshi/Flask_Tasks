@@ -28,7 +28,7 @@
 
 # Useful links:
 # dev.fitbit.com/apps
-# dev.fitbit.com/build/reference/web-api/explore
+# dev.fitbit.com/build/reference/web-api/explore/
 
 # json to User
 # data["user_id"],
