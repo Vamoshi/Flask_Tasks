@@ -122,7 +122,6 @@ def code():
 
     # if user doesn't exist, create new user
     if(user == None):
-        print("IM INSIDE")
         setUser(
             data["user_id"],
             data["access_token"],

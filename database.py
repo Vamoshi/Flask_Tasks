@@ -34,24 +34,18 @@ def addUser(session, userJson):
 
 
 def getUser(session, userId):
-    try:
-        result = session.query(Users).filter(Users.user_id == userId).first()
-
-        print('GETTING USER')
-        print("RESULT IS ", result)
-        return result
-    except:
-        return None
+    result = session.query(Users).filter(Users.user_id == userId).first()
+    return result
 
 
 def updateUser(session, userId, userJson):
     user = session.query(Users).filter(Users.user_id == userId).first()
 
-    user.access_token = userJson["access_token"],
-    user.expires_in = userJson["expires_in"],
-    user.refresh_token = userJson["refresh_token"],
-    user.scope = userJson["scope"],
-    user.time_fetched = datetime.now
+    user.access_token = userJson["access_token"]
+    user.expires_in = userJson["expires_in"]
+    user.refresh_token = userJson["refresh_token"]
+    user.scope = userJson["scope"]
+    user.time_fetched = datetime.now()
 
     session.add(user)
 
