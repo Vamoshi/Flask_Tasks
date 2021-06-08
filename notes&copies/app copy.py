@@ -34,17 +34,23 @@ from flask import Flask, redirect, request
 from urllib import parse
 import requests
 import base64
-from db import *
+from db import setUser, getUser
 
 app = Flask(__name__)
 
-# TODO: Make into class
-client_id = "23B236"
-client_secret = "07bdd4ade65de85abc9247e752cd49fc"
+
 auth_base_url = "https://www.fitbit.com/oauth2/authorize"
 token_base_url = "https://api.fitbit.com/oauth2/token"
 flask_base_url = "http://127.0.0.1:5000"
-userId = []
+
+# client_id = "23B236"
+# client_secret = "07bdd4ade65de85abc9247e752cd49fc"
+client_id = "23B2TZ"
+client_secret = "a49b5d755ced923c7fd434a3a4c62383"
+
+
+class UserId:
+    value = ""
 
 
 @app.route('/')
@@ -63,8 +69,17 @@ def index():
     """
 
 
+# @app.route('/')
+# def index():
+
+
 @app.route('/consentpage')
 def consentPage():
+    # TODOS: CHECK IF ACCESS TOKEN EXISTS
+
+    # TODOS: CHECK IF ACCESS TOKEN IS ABOUT TO EXPIRE
+    # UPDATE REFRESH TOKEN IN DATABASE
+
     redirect_url = parse.quote_plus(f"{flask_base_url}/code")
     return redirect(f"{auth_base_url}?response_type=code&client_id={client_id}&redirect_uri={redirect_url}&scope=activity%20heartrate%20location%20nutrition%20profile%20settings%20sleep%20social%20weight&expires_in=604800")
 
@@ -99,13 +114,11 @@ def code():
     # get response as json
     data = req.json()
 
-    # TODOS: CHECK IF ACCESS TOKEN IS ABOUT TO EXPIRE
-
     # cache userID
-    userId.append(data["user_id"])
+    UserId.value = data["user_id"]
 
     # get user
-    user = getUserDetails(data["user_id"])
+    user = getUser(data["user_id"])
 
     # if user doesn't exist, create new user
     if(user == None):
@@ -123,15 +136,10 @@ def code():
 
 @app.route('/access')
 def access():
-    result = ''
-    try:
-        result = getUserDetails(userId[0])
-    except error:
-        result = None
-        print(error)
+    result = getUser(UserId.value)
 
     return f"""
-    <h1>UserId = {userId[0]}</h1>
+    <h1>User = {UserId.value}</h1>
     <h1>User is {result}</h1>
     <h1></h1>
     """
