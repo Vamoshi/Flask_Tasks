@@ -1,7 +1,10 @@
 from sqlalchemy import create_engine, engine
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.sql.functions import user
+from datetime import datetime
+
+# User defined modules
 from models import Users
+
 
 SQLALCHEMY_DATABASE_URL = "sqlite:///./user.db"
 
@@ -19,7 +22,7 @@ def addUser(session, userJson):
         expires_in=userJson["expires_in"],
         refresh_token=userJson["refresh_token"],
         scope=userJson["scope"],
-        time_fetched=userJson["time_fetched"],
+        time_fetched=datetime.now(),
     )
 
     # record = Users(
@@ -43,7 +46,12 @@ def getUser(session, userId):
 
 def updateUser(session, userId, userJson):
     user = session.query(Users).filter(Users.user_id == userId).first()
-    user.name = userJson
+
+    user.access_token = userJson["access_token"],
+    user.expires_in = userJson["expires_in"],
+    user.refresh_token = userJson["refresh_token"],
+    user.scope = userJson["scope"],
+    user.time_fetched = datetime.now
 
     session.add(user)
 

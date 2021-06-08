@@ -29,3 +29,10 @@
 # Useful links:
 # dev.fitbit.com/apps
 # dev.fitbit.com/build/reference/web-api/explore
+
+# json to User
+# data["user_id"],
+# data["access_token"],
+# data["expires_in"],
+# data["refresh_token"],
+# data["scope"]

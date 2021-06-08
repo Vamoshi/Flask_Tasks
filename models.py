@@ -1,4 +1,3 @@
-from typing import Text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, Text
 from sqlalchemy.types import DateTime
