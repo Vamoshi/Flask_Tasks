@@ -3,7 +3,7 @@ import base64
 from datetime import datetime
 
 # User defined modules
-from repository import getUser
+from repository import getFitbitUser
 
 
 def base64EncodeSecrets(clientId, clientSecret):
@@ -15,7 +15,7 @@ def base64EncodeSecrets(clientId, clientSecret):
 
 
 def tokenNeedRefresh(userId):
-    user = getUser(userId)
+    user = getFitbitUser(userId)
     today = datetime.now()
     secondsElapsed = ((today - user.time_fetched).total_seconds())
 

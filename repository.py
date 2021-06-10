@@ -21,17 +21,12 @@ def createUser(email, password):
         session.close()
 
 
-def authenticateUser(email, password):
+def findAndAuthenticateUser(email, password):
     try:
         session = SessionLocal()
         user = database.get(session, email, Users.email, Users)
         if(user is None):
             return Result(status=404, message="Email does not exist")
-            # return {
-            #     "status": 404,
-            #     "message": "Email does not exist",
-            #     "result": None,
-            # }
         elif(password == user.password):
             print("email and password are correct!!")
             return Result(
@@ -60,7 +55,7 @@ def addUser(userJson):
         session.close()
 
 
-def getUser(userId):
+def getFitbitUser(userId):
     try:
         session = SessionLocal()
         result = database.get(session, userId)
@@ -69,6 +64,21 @@ def getUser(userId):
     except Exception as error:
         print(error)
         return None
+
+
+def getByField(value, ModelField, ModelClass):
+    try:
+        session = SessionLocal()
+        result = database.get(session, value, ModelField, ModelClass)
+        return Result(
+            result=result,
+            message="success"
+        )
+    except Exception as error:
+        session.rollback()
+        raise Exception(f'Error:{error}')
+    finally:
+        session.close()
 
 
 def updateUser(userId, userJson):

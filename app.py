@@ -1,15 +1,14 @@
 # Modules
-from re import L
 from flask import Flask, redirect, request, url_for
 from urllib import parse
 import requests
 
 # User defined modules
 from database import engine
-from repository import addUser, authenticateUser, createUser, getUser, updateUser
-import models
+from repository import addUser, findAndAuthenticateUser, createUser, getByField, getFitbitUser, updateUser
 from utilities import base64EncodeSecrets, tokenNeedRefresh
-
+from models import Users
+import models
 
 app = Flask(__name__)
 
@@ -44,7 +43,9 @@ client_secret = "f770f00f4059332a9c8add74dadd7dcf"
 
 class Mutable:
     # For debugging/development
-    userId = ""
+    # Replace userId with userId from flutter application,
+    # then access the rest of the fields by looking up the database
+    userId = None
     fitbitUserId = ""
     route = ""
     accessToken = ""
@@ -93,25 +94,44 @@ def register():
     # Get email + password
     # Check if email exists
     # If true, return error. If false, store email address + password
-    # Get email address
+    # Get Users.user_id via email
+    # Return ID to flutter application
     email = request.args.get('email')
     password = request.args.get('password')
 
-    createUser(email, password)
+    response = findAndAuthenticateUser(email, password)
 
-    return f'''
-        <h1>{email}</h1>
-        <h1>{password}</h1>
-        <h1></h1>
-    '''
+    if(response.status != 200):
+        createUser(email, password)
+        newResponse = findAndAuthenticateUser(email, password)
+        Mutable.userId = newResponse.result.user_id
+        return newResponse.result.user_id
+
+    Mutable.userId = response.result.user_id
+
+    # Should return an error, but for now just go to login
+    return redirect('/app/login')
 
 
 @app.route('/app/login')
 def login():
+    if(Mutable.userId is not None):
+        response = getByField(Mutable.userId, Users.user_id, Users)
+        user = response.result
+        return f'''
+            <h1>{response.status}</h1>
+            <h1>{user.email}</h1>
+            <h1>{user.password}</h1>
+            <h1>{response.message}</h1>
+            <h1></h1>
+        '''
+
     email = request.args.get('email')
     password = request.args.get('password')
 
-    response = authenticateUser(email, password)
+    response = findAndAuthenticateUser(email, password)
+
+    print(f"RESPONSE IS ========== {response.result}")
 
     if(response.result is not None):
         user = response.result
@@ -225,7 +245,7 @@ def code():
 
 @app.route('/fitbit/access')
 def access():
-    result = getUser(Mutable.userId)
+    result = getFitbitUser(Mutable.userId)
 
     return f"""
         <h1>User = {Mutable.userId}</h1>
@@ -314,7 +334,7 @@ def getFitbitCalories(date):
 @app.route('/fitbit/refresh')
 # Refresh tokens
 def refresh():
-    user = getUser(Mutable.userId)
+    user = getFitbitUser(Mutable.userId)
     encoded_secret = base64EncodeSecrets(client_id, client_secret)
     req = requests.post(
         token_base_url,
