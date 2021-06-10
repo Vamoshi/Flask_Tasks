@@ -3,10 +3,10 @@ from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 
 # User defined modules
-from models import Users
+from models import FitbitUsers
 
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./user.db"
+SQLALCHEMY_DATABASE_URL = "sqlite:///./db.db"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
@@ -15,38 +15,25 @@ engine = create_engine(
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
-def addUser(session, userJson):
-    record = Users(
-        user_id=userJson["user_id"],
-        access_token=userJson["access_token"],
-        expires_in=userJson["expires_in"],
-        refresh_token=userJson["refresh_token"],
-        scope=userJson["scope"],
-        time_fetched=datetime.now(),
-    )
-
-    # record = Users(
-    #     user_id=id,
-    #     name=name
-    # )
-
+# session is for db session
+# record should already be an instatiated model
+def add(session, record):
     session.add(record)
 
 
-def getUser(session, userId):
-    result = session.query(Users).filter(Users.user_id == userId).first()
+# session is for db session
+# value is what we are searching for
+# ModelField is the Model's field that we are comparing to, e.g Users.user_id
+# ModelClass is the table we will search the id from, e.g Users
+# ModelClass corresponds to a table in the database
+def get(session, value, ModelField, ModelClass):
+    result = session.query(ModelClass).filter(ModelField == value).first()
     return result
 
 
-def updateUser(session, userId, userJson):
-    user = session.query(Users).filter(Users.user_id == userId).first()
+def update(session, id, newRecord, ModelId, ModelClass):
+    record = session.query(ModelClass).filter(ModelId == id).first()
+    record = newRecord
+    session.add(record)
 
-    user.access_token = userJson["access_token"]
-    user.expires_in = userJson["expires_in"]
-    user.refresh_token = userJson["refresh_token"]
-    user.scope = userJson["scope"]
-    user.time_fetched = datetime.now()
-
-    session.add(user)
-
-    return user
+    return record
