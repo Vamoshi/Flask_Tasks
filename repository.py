@@ -116,6 +116,31 @@ def getByField(value, ModelField, ModelClass):
         )
 
 
+def getUserAccessToken(userId):
+    try:
+        session = SessionLocal()
+        fitbitUser = database.get(
+            session, userId, FitbitUsers.user_id, FitbitUsers)
+        return fitbitUser.access_token
+    except Exception as error:
+        session.rollback()
+        raise Exception(f'Error:{error}')
+    finally:
+        session.close()
+
+
+def addRecord(record):
+    try:
+        session = SessionLocal()
+        database.add(session, record)
+        session.commit()
+    except Exception as error:
+        session.rollback()
+        raise Exception(f'Error:{error}')
+    finally:
+        session.close()
+
+
 def updateFitbitUser(fitbitUserId, fitbitUserJson):
     try:
         session = SessionLocal()

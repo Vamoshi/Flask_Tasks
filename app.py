@@ -1,4 +1,5 @@
 # Modules
+from datetime import datetime
 from flask import Flask, redirect, request, url_for
 from urllib import parse
 import requests
@@ -6,9 +7,9 @@ from werkzeug.wrappers import response
 
 # User defined modules
 from database import engine
-from repository import createFitbitUser, findAndAuthenticateUser, createUser, getByField, getFitbitUser, updateFitbitUser
+from repository import addRecord, createFitbitUser, findAndAuthenticateUser, createUser, getByField, getFitbitUser, getUserAccessToken, updateFitbitUser
 from utilities import base64EncodeSecrets, tokenNeedRefresh
-from models import FitbitUsers, Users
+from models import FitbitUsers, UserCalories, UserSleep, UserSteps, Users
 import models
 import json
 
@@ -30,8 +31,8 @@ expires_in = 604800
 #
 
 # # # Fitbit Application Secrets:
-client_id = "23B89N"
-client_secret = "0542d61d26bb7c7b0c1334186591d96f"
+client_id = "23B8TC"
+client_secret = "7f470c673a92fa6eaf366b8d5f7ffcfc"
 
 
 class Mutable:
@@ -225,7 +226,6 @@ def code():
     fitbitUserId = fitbitUserJson["user_id"]
 
     # get user & fitbitUser
-    user = getByField(userId, Users.user_id, Users)
     fitbitUser = getByField(
         fitbitUserId, FitbitUsers.fitbit_user_id, FitbitUsers
     )
@@ -234,36 +234,30 @@ def code():
         print("Fitbit user doesn't exist, adding to db!")
         createFitbitUser(userId, fitbitUserJson)
 
-        jsonDict = {
-            "status_code": 200,
-            "user_id": userId,
-            "message": "Successfully ADDED fitbit authorization",
-            "email": user.result.email
-        }
-        return json.dumps(jsonDict)
+        return """
+            <div style="min-height: 100vh; display: grid; place-items: center;">
+                <h1>SUCCESSFULLY LOGGED IN TO FITBIT! <br/>
+                    YOU MAY NOW CLOSE THIS WINDOW!
+                </h1>
+            </div>
+            """
     elif(
         fitbitUserJson['access_token'] != fitbitUser.result.access_token or
         fitbitUserJson['refresh_token'] != fitbitUser.result.refresh_token
     ):
         print("tokens are different, updating user!")
         updateFitbitUser(fitbitUserJson['user_id'], fitbitUserJson)
-        jsonDict = {
-            "status_code": 200,
-            "user_id": userId,
-            "message": "Successfully UPDATED fitbit authorization",
-            "email": user.result.email
-        }
-        return json.dumps(jsonDict)
+        return """
+            <div style="min-height: 100vh; display: grid; place-items: center;">
+                <h1>SUCCESSFULLY LOGGED IN TO FITBIT! <br/>
+                    YOU MAY NOW CLOSE THIS WINDOW!
+                </h1>
+            </div>
+            """
 
-    jsonDict = {
-        "status_code": 500,
-        "user_id": -1,
-        "message": "Something went wrong",
-        "email": ""
-    }
     return """
     <div style="min-height: 100vh; display: grid; place-items: center;">
-        <h1>SUCCESSFULLY LOGGED IN TO FITBIT! <br/>
+        <h1>SOMETHING WENT WRONG! <br/>
             YOU MAY NOW CLOSE THIS WINDOW!
         </h1>
     </div>
@@ -318,11 +312,15 @@ def access():
 
 @app.route('/fitbit/profile')
 def profile():
+    received = request.json
+    userId = received['user_id']
+    accessToken = getUserAccessToken(userId)
+
     # user = getUser(Mutable.userId)
     req = requests.get(
         f"{fitbit_api_url}/{user_1_url}/profile.json",
         headers={
-            'Authorization': f'Bearer {Mutable.accessToken}'
+            'Authorization': f'Bearer {accessToken}'
         }
     )
 
@@ -335,13 +333,17 @@ def profile():
     return profile
 
 
-@app.route('/fitbit/sleep/<date>')
+@app.route('/fitbit/sleep/<date>', methods=['POST', 'GET'])
 def getFitbitSleep(date):
     # date format is YYYY-MM-DD
+    received = request.json
+    userId = received['user_id']
+    accessToken = getUserAccessToken(userId)
+
     req = requests.get(
         f"{fitbit_api_url}/{user_1_2_url}/sleep/date/{date}.json",
         headers={
-            'Authorization': f'Bearer {Mutable.accessToken}'
+            'Authorization': f'Bearer {accessToken}'
         }
     )
 
@@ -350,15 +352,34 @@ def getFitbitSleep(date):
 
     sleepJson = req.json()
 
-    return sleepJson["summary"]
+    addRecord(
+        UserSleep(
+            user_id=userId,
+            total_minutes_asleep=sleepJson['summary']['totalMinutesAsleep'],
+            total_time_in_bed=sleepJson['summary']['totalTimeInBed'],
+            date=datetime.strptime(date, '%Y-%m-%d')
+        )
+    )
+
+    jsonDict = {
+        "totalMinutesAsleep": sleepJson['summary']['totalMinutesAsleep'],
+        "totalTimeInBed": sleepJson['summary']['totalTimeInBed'],
+        'date': date
+    }
+
+    return json.dumps(jsonDict)
 
 
-@app.route('/fitbit/steps/<date>')
+@app.route('/fitbit/steps/<date>', methods=['POST', 'GET'])
 def getFitbitSteps(date):
+    received = request.json
+    userId = received['user_id']
+    accessToken = getUserAccessToken(userId)
+
     req = requests.get(
         f"{fitbit_api_url}/{user_1_2_url}/activities/date/{date}.json",
         headers={
-            'Authorization': f'Bearer {Mutable.accessToken}'
+            'Authorization': f'Bearer {accessToken}'
         }
     )
 
@@ -368,15 +389,32 @@ def getFitbitSteps(date):
     stepsJson = req.json()
     steps = stepsJson["summary"]["steps"]
 
-    return stepsJson["summary"]
+    addRecord(
+        UserSteps(
+            user_id=userId,
+            steps=steps,
+            date=datetime.strptime(date, '%Y-%m-%d')
+        )
+    )
+
+    jsonDict = {
+        'steps': steps,
+        'date': date
+    }
+
+    return json.dumps(jsonDict)
 
 
-@app.route('/fitbit/calories/<date>')
+@app.route('/fitbit/calories/<date>', methods=['POST', 'GET'])
 def getFitbitCalories(date):
+    received = request.json
+    userId = received['user_id']
+    accessToken = getUserAccessToken(userId)
+
     req = requests.get(
         f"{fitbit_api_url}/{user_1_2_url}/activities/date/{date}.json",
         headers={
-            'Authorization': f'Bearer {Mutable.accessToken}'
+            'Authorization': f'Bearer {accessToken}'
         }
     )
 
@@ -384,9 +422,20 @@ def getFitbitCalories(date):
         raise Exception(f"Error: {req.json()}")
 
     caloriesJson = req.json()
-    calories = caloriesJson["calories"]
+    caloriesSummary = caloriesJson["summary"]
+    calories = caloriesSummary['calories']
 
-    return caloriesJson["summary"]
+    print(f"CALORIES JSON IS ======== {caloriesJson}")
+    print(f"CALORIES IS {calories}")
+    addRecord(
+        UserCalories(
+            user_id=userId,
+            bmr=calories['bmr'],
+            calories_total=calories['total']
+        )
+    )
+
+    return calories
 
 
 if __name__ == "__main__":
