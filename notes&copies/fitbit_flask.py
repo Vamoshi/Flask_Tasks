@@ -73,9 +73,6 @@
 
 # @app.route('/consentpage')
 # def consentPage():
-#     # TODOS: CHECK IF ACCESS TOKEN EXISTS
-
-#     # TODOS: CHECK IF ACCESS TOKEN IS ABOUT TO EXPIRE
 #     # UPDATE REFRESH TOKEN IN DATABASE
 
 #     redirect_url = parse.quote_plus(f"{flask_base_url}/code")

@@ -75,11 +75,6 @@ def index():
 
 @app.route('/consentpage')
 def consentPage():
-    # TODOS: CHECK IF ACCESS TOKEN EXISTS
-
-    # TODOS: CHECK IF ACCESS TOKEN IS ABOUT TO EXPIRE
-    # UPDATE REFRESH TOKEN IN DATABASE
-
     redirect_url = parse.quote_plus(f"{flask_base_url}/code")
     return redirect(f"{auth_base_url}?response_type=code&client_id={client_id}&redirect_uri={redirect_url}&scope=activity%20heartrate%20location%20nutrition%20profile%20settings%20sleep%20social%20weight&expires_in=604800")
 

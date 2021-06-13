@@ -67,7 +67,7 @@ class Users(Base):
 
 class Result():
     # Not part of the database
-    def __init__(self, status=200, result=None, message=""):
-        self.status = status
+    def __init__(self, status_code=200, result=None, message=""):
+        self.status_code = status_code
         self.result = result
         self.message = message

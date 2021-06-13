@@ -2,13 +2,15 @@
 from flask import Flask, redirect, request, url_for
 from urllib import parse
 import requests
+from werkzeug.wrappers import response
 
 # User defined modules
 from database import engine
-from repository import addUser, findAndAuthenticateUser, createUser, getByField, getFitbitUser, updateUser
+from repository import createFitbitUser, findAndAuthenticateUser, createUser, getByField, getFitbitUser, updateFitbitUser
 from utilities import base64EncodeSecrets, tokenNeedRefresh
-from models import Users
+from models import FitbitUsers, Users
 import models
+import json
 
 app = Flask(__name__)
 
@@ -22,29 +24,21 @@ fitbit_api_url = "https://api.fitbit.com"
 user_1_url = "1/user/-"
 user_1_1_url = "1.1/user/-"
 user_1_2_url = "1.2/user/-"
-
+scope = 'activity%20heartrate%20location%20nutrition%20profile%20settings%20sleep%20social%20weight'
+expires_in = 604800
 # http://127.0.0.1:5000
 #
 
 # # # Fitbit Application Secrets:
-# # Practice 2
-# client_id = "23B236"
-# client_secret = "07bdd4ade65de85abc9247e752cd49fc"
-# # Practice 3
-# client_id = "23B2TZ"
-# client_secret = "a49b5d755ced923c7fd434a3a4c62383"
-# # Practice 4
-# client_id = "23B2GM"
-# client_secret = "3dde7c4c650d7af98c0652fefef9815e"
-# # login practice
-client_id = "23B87P"
-client_secret = "f770f00f4059332a9c8add74dadd7dcf"
+client_id = "23B89N"
+client_secret = "0542d61d26bb7c7b0c1334186591d96f"
 
 
 class Mutable:
     # For debugging/development
     # Replace userId with userId from flutter application,
     # then access the rest of the fields by looking up the database
+    # only keep route
     userId = None
     fitbitUserId = ""
     route = ""
@@ -65,130 +59,143 @@ def something():
     return '<h1>ITS WORKING!!</h1>'
 
 
-# @app.route('/')
-# # This route is for printing purposes
-# def index():
-#     # Encode 'client_id:client_secret' to base64
-#     encoded_secret = base64EncodeSecrets(client_id, client_secret)
+@app.route('/test/<userId>')
+def test(userId):
+    user = getByField(userId, Users.user_id, Users)
 
-#     elapsed_time = tokenNeedRefresh(Mutable.userId)
-
-#     return f"""<h1>Index {parsed_redirect_url} {client_id}</h1>
-#     <h1>{auth_base_url}?response_type=code&client_id={client_id}&redirect_uri={parsed_redirect_url}&scope=activity%20heartrate%20location%20nutrition%20profile%20settings%20sleep%20social%20weight&expires_in=604800</h1>
-#     <h1>
-#         https://www.fitbit.com/oauth2/authorize?response_type=code&client_id=23B27C&redirect_uri=http%3A%2F%2F127.0.0.1%3A5000%2Ffitbit%2Fcode&scope=activity%20heartrate%20location%20nutrition%20profile%20settings%20sleep%20social%20weight&expires_in=604800
-#     </h1>
-#     <h1>{encoded_secret}</h1>
-#     <h1>Elapsed time: {elapsed_time}</h1>
-#     """
-
-@app.route('/')
-def index():
     return f'''
-        <h1>I am in index</h1>
+        <h1>{user.status_code}</h1>
+        <h1>{user.message}</h1>
     '''
 
 
-@app.route('/app/register')
+@app.route('/app/register', methods=['POST'])
 def register():
     # Get email + password
     # Check if email exists
-    # If true, return error. If false, store email address + password
+    # If true, return user_id = -1. If false, store email address + password
     # Get Users.user_id via email
-    # Return ID to flutter application
-    email = request.args.get('email')
-    password = request.args.get('password')
+    # Return user_id to flutter application
+    req = request.json
 
-    response = findAndAuthenticateUser(email, password)
+    print(f"REQ IS ===== ${req}")
 
-    if(response.status != 200):
+    email = req['email']
+    password = req['password']
+
+    # confirm that user does not exist
+    response = getByField(email, Users.email, Users)
+
+    print(f'STATUS CODE IS ${response.status_code}')
+
+    # user does not exist in database
+    if(response.status_code == 404):
         createUser(email, password)
+        # get user record and get user id
         newResponse = findAndAuthenticateUser(email, password)
-        Mutable.userId = newResponse.result.user_id
-        return newResponse.result.user_id
 
-    Mutable.userId = response.result.user_id
+        print(f"NEW RESPONSE RESULT IS ===== ${newResponse.result.user_id}")
 
-    # Should return an error, but for now just go to login
-    return redirect('/app/login')
+        jsonDict = {
+            "user_id": newResponse.result.user_id,
+            "status_code": newResponse.status_code,
+            "message": "Successfully created user"
+        }
+        return json.dumps(jsonDict)
+    else:
+        jsonDict = [None]
+        # user exists in database
+        if(response.status_code == 200):
+            jsonDict[0] = {
+                "status_code": response.status_code,
+                "user_id": -1,
+                "message": "User already exists"
+            }
+        # Something went wrong in database
+        else:
+            jsonDict[0] = {
+                "status_code": response.status_code,
+                "user_id": -1,
+                "message": response.message
+            }
+
+        return json.dumps(jsonDict[0])
 
 
-@app.route('/app/login')
+@app.route('/app/login', methods=['POST'])
 def login():
-    if(Mutable.userId is not None):
-        response = getByField(Mutable.userId, Users.user_id, Users)
-        user = response.result
-        return f'''
-            <h1>{response.status}</h1>
-            <h1>{user.email}</h1>
-            <h1>{user.password}</h1>
-            <h1>{response.message}</h1>
-            <h1></h1>
-        '''
+    req = request.json
+    userId = req['user_id']
 
-    email = request.args.get('email')
-    password = request.args.get('password')
+    # ask how to convert to nonlocal
+    class Resp:
+        resp = ""
 
-    response = findAndAuthenticateUser(email, password)
+    if(userId is not None and userId >= 0):
+        print(f"USER ID IS NOT NONE {userId}")
+        Resp.resp = getByField(userId, Users.user_id, Users)
+        # TODO: check if user has a registered fitbit account
+        # if not, prompt user in flutter which would lead to consent page
+        # if yes, get access token then check if it has expired
+        # refresh if expired
+        # fitbitUserResp = getByField(userId, FitbitUsers.user_id, FitbitUsers)
+        # fitbitUser = fitbitUserResp.result
+        # if(fitbitUser is not None):
+        #     return redirect('/fitbit/refresh')
+    else:
+        print("USER ID IS NONE, GETTING VIA EMAIL AND PASSWORD")
+        email = req['email']
+        password = req['password']
+        Resp.resp = findAndAuthenticateUser(email, password)
 
-    print(f"RESPONSE IS ========== {response.result}")
+    # user exists
+    if Resp.resp.status_code == 200:
 
-    if(response.result is not None):
-        user = response.result
-        return f'''
-            <h1>{response.status}</h1>
-            <h1>{user.email}</h1>
-            <h1>{user.password}</h1>
-            <h1>{response.message}</h1>
-            <h1></h1>
-        '''
+        jsonDict = {
+            "status_code": Resp.resp.status_code,
+            "user_id": Resp.resp.result.user_id,
+            "message": Resp.resp.message
+        }
+        return json.dumps(jsonDict)
 
-    return f'''
-        <h1>{response.status}</h1>
-        <h1>{response.result}</h1>
-        <h1>{response.message}</h1>
-        <h1></h1>
-    '''
+    print("USER NOT FOUND")
 
+    jsonDict = {
+        "status_code": Resp.resp.status_code,
+        "user_id": -1,
+        "message": Resp.resp.message
+    }
 
-# @app.route('/fitbit/crossroad/<route>')
-# # This is the only endpoint accessible by flutter
-# # ASK HOW TO PASS VARIABLES VIA THIS ROUTE!!
-# def crossroad(route):
-#     # Store route
-#     Mutable.route = route
-
-#     # If Mutable.userId is null, get it,
-#     if(Mutable.userId == ""):
-#         print("Mutable.userId is null")
-#         return redirect('/fitbit/consent')
-#     # If User doesn't exist in database, create it
-#     elif(getUser(Mutable.userId) == None):
-#         print("User is not in database")
-#         return redirect('/fitbit/consent')
-#     # If only 30 minutes are left til access token expires, and more than 2 minutes have passed, refresh it
-#     elif(tokenNeedRefresh(Mutable.userId)):
-#         print("Need to refresh user tokens")
-#         return redirect('/fitbit/refresh')
-
-#     print("Mutable.userId is not null \n User is in database \n No need to refresh token")
-#     # Go to the route passed by flutter
-#     return redirect(f"/fitbit/{Mutable.route}")
+    return json.dumps(jsonDict)
 
 
-@app.route('/fitbit/consent')
+@app.route('/fitbit/consent', methods=['POST'])
+# Should only return url
 def consent():
-    return redirect(f"{auth_base_url}?response_type=code&client_id={client_id}&redirect_uri={redirect_url}&scope=activity%20heartrate%20location%20nutrition%20profile%20settings%20sleep%20social%20weight&expires_in=604800")
+    # get userId from application via POST
+    req = request.json
+    userId = req['user_id']
+
+    # fitbitUser = getByField(userId, FitbitUsers.user_id, FitbitUsers)
+    # if(fitbitUser['result'] is not None):
+    #     # TODO: Check if token needs refresh
+    #     return ""
+
+    return f"{auth_base_url}?response_type=code&client_id={client_id}&redirect_uri={parsed_redirect_url}&scope={scope}&state={userId}"
 
 
-@app.route('/fitbit/code')
+@app.route('/fitbit/code', methods=['POST', 'GET'])
 # Get Auth code from fitbit redirect url then exchange for access token
-# Get user_id in fitbit response then store in Mutable.userId
+# Get user_id from consent
 # Check if fitbit response fields are stored in the db, if not, add
+# Should return HTML SUCCESS page
 def code():
     print("Was able to get Authorization code!")
     # Get Auth code from url
     code = request.args.get('code')
+    userId = request.args.get('state')
+
+    print(f"PASSED STATE IS===={userId}\n")
 
     # Encode 'client_id:client_secret' to base64
     encoded_secret = base64EncodeSecrets(client_id, client_secret)
@@ -202,45 +209,96 @@ def code():
         }, params={
             'code': code,
             'grant_type': 'authorization_code',
-            'redirect_uri': redirect_url
+            'redirect_uri': redirect_url,
         }
     )
 
-    # # get response status
-    # status = f"status:{req.status_code}"
-    # print(status)
-
     # get response as json
-    userJson = req.json()
+    fitbitUserJson = req.json()
 
-    print(f"USERJSON IS ============== {userJson}")
+    print(f"FITBITUSERJSON IS ============== {fitbitUserJson}")
 
     # If an error is returned by fitbit api
     if(req.status_code != 200):
-        raise Exception(userJson)
+        raise Exception(fitbitUserJson)
 
-    # cache userID
-    Mutable.userId = userJson["user_id"]
+    fitbitUserId = fitbitUserJson["user_id"]
 
-    # cache access token
-    Mutable.accessToken = userJson["access_token"]
+    # get user & fitbitUser
+    user = getByField(userId, Users.user_id, Users)
+    fitbitUser = getByField(
+        fitbitUserId, FitbitUsers.fitbit_user_id, FitbitUsers
+    )
 
-    # # get user
-    # user = getUser(userJson["user_id"])
+    if(fitbitUser.result is None):
+        print("Fitbit user doesn't exist, adding to db!")
+        createFitbitUser(userId, fitbitUserJson)
 
-    # # if user is None, create new user record in db
-    # if(user == None):
-    #     print("User doesn't exist, adding user to db")
-    #     addUser(userJson)
-    # # Check tokens stored in db with the newly fetched token, if different, update
-    # elif(userJson["access_token"] != user.access_token or userJson["refresh_token"] != user.refresh_token):
-    #     print("Tokens are different, updating user")
-    #     updateUser(Mutable.userId, userJson)
+        jsonDict = {
+            "status_code": 200,
+            "user_id": userId,
+            "message": "Successfully ADDED fitbit authorization",
+            "email": user.result.email
+        }
+        return json.dumps(jsonDict)
+    elif(
+        fitbitUserJson['access_token'] != fitbitUser.result.access_token or
+        fitbitUserJson['refresh_token'] != fitbitUser.result.refresh_token
+    ):
+        print("tokens are different, updating user!")
+        updateFitbitUser(fitbitUserJson['user_id'], fitbitUserJson)
+        jsonDict = {
+            "status_code": 200,
+            "user_id": userId,
+            "message": "Successfully UPDATED fitbit authorization",
+            "email": user.result.email
+        }
+        return json.dumps(jsonDict)
 
-    # # return redirect('/fitbit/access')
-    # return redirect(f'/fitbit/{Mutable.route}')
+    jsonDict = {
+        "status_code": 500,
+        "user_id": -1,
+        "message": "Something went wrong",
+        "email": ""
+    }
+    return """
+    <div style="min-height: 100vh; display: grid; place-items: center;">
+        <h1>SUCCESSFULLY LOGGED IN TO FITBIT! <br/>
+            YOU MAY NOW CLOSE THIS WINDOW!
+        </h1>
+    </div>
+    """
 
-    return redirect('/fitbit/steps/2020-09-01')
+
+@app.route('/fitbit/refresh')
+# Refresh tokens
+def refresh():
+    userId = request.json['user_id']
+    user = getFitbitUser(Mutable.userId)
+    encoded_secret = base64EncodeSecrets(client_id, client_secret)
+    req = requests.post(
+        token_base_url,
+        headers={
+            'Authorization': f'Basic {encoded_secret}',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }, params={
+            'grant_type': 'refresh_token',
+            'refresh_token': user.refresh_token,
+            # expires_in defaults to 28800 or 8 hours
+        }
+    )
+
+    userJson = req.json()
+
+    # If an error is returned by fitbit api
+    if(req.status_code != 200):
+        raise Exception(f"{req.json()}{userJson}")
+
+    updateFitbitUser(Mutable.userId, userJson)
+
+    print("REFRESHED TOKEN! USER JSON IS ================ ", userJson)
+
+    return
 
 
 @app.route('/fitbit/access')
@@ -329,37 +387,6 @@ def getFitbitCalories(date):
     calories = caloriesJson["calories"]
 
     return caloriesJson["summary"]
-
-
-@app.route('/fitbit/refresh')
-# Refresh tokens
-def refresh():
-    user = getFitbitUser(Mutable.userId)
-    encoded_secret = base64EncodeSecrets(client_id, client_secret)
-    req = requests.post(
-        token_base_url,
-        headers={
-            'Authorization': f'Basic {encoded_secret}',
-            'Content-Type': 'application/x-www-form-urlencoded'
-        }, params={
-            'grant_type': 'refresh_token',
-            'refresh_token': user.refresh_token,
-            # expires_in defaults to 28800 or 8 hours
-        }
-    )
-
-    userJson = req.json()
-
-    # If an error is returned by fitbit api
-    if(req.status_code != 200):
-        raise Exception(f"{req.json()}{userJson}")
-
-    updateUser(Mutable.userId, userJson)
-
-    print("REFRESHED TOKEN! USER JSON IS ================ ", userJson)
-
-    # return redirect(f'/fitbit/access')
-    return redirect(f'/fitbit/{Mutable.route}')
 
 
 if __name__ == "__main__":

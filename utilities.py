@@ -14,13 +14,12 @@ def base64EncodeSecrets(clientId, clientSecret):
     return encodedSecret
 
 
-def tokenNeedRefresh(userId):
-    user = getFitbitUser(userId)
+def tokenNeedRefresh(fitbitUser):
     today = datetime.now()
-    secondsElapsed = ((today - user.time_fetched).total_seconds())
+    secondsElapsed = ((today - fitbitUser.time_fetched).total_seconds())
 
     # 30 minutes
     seconds = 1800
 
     # Check if the access token is available for only 30 minutes more
-    return secondsElapsed > (user.expires_in - seconds) and secondsElapsed > 120
+    return secondsElapsed > (fitbitUser.expires_in - seconds) and secondsElapsed > 120
