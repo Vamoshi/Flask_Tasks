@@ -7,7 +7,7 @@ from werkzeug.wrappers import response
 
 # User defined modules
 from database import engine
-from repository import addRecord, createFitbitUser, findAndAuthenticateUser, createUser, getByField, getFitbitUser, getUserAccessToken, updateFitbitUser
+from repository import addRecord, createFitbitUser, findAndAuthenticateUser, createUser, getAll, getByField, getFitbitUser, getUserAccessToken, updateFitbitUser
 from utilities import base64EncodeSecrets, tokenNeedRefresh
 from models import FitbitUsers, UserCalories, UserSleep, UserSteps, Users
 import models
@@ -53,6 +53,51 @@ models.Base.metadata.create_all(bind=engine)
 # @app.route('/test/<route>')
 # def test(route):
 #     return redirect(f'/working/{route}')
+
+@app.route('/')
+def index():
+    return "<h1>THIS IS THE INDEX</h1>"
+
+
+@app.route('/test/users', methods=["POST", "GET"])
+def users():
+    users = getAll(Users)
+    print(users)
+
+    usersJson = {
+        "users": []
+    }
+
+    for user in users:
+        usersJson["users"].append(
+            {
+                "user_id": user.user_id,
+                "email": user.email,
+            }
+        )
+
+    return json.dumps(usersJson)
+
+
+@app.route('/test/fitbitusers', methods=["POST", "GET"])
+def fitbitUsers():
+    fitbitUsers = getAll(FitbitUsers)
+    print(fitbitUsers)
+
+    fitbitUsersJson = {
+        "fitbitUsers": []
+    }
+
+    for fitbitUser in fitbitUsers:
+        fitbitUsersJson["fitbitUsers"].append(
+            {
+                "fitbit_user_id": fitbitUser.fitbit_user_id,
+                "user_id": fitbitUser.user_id,
+                "access_token": fitbitUser.access_token
+            }
+        )
+
+    return json.dumps(fitbitUsersJson)
 
 
 @app.route('/fitbit/working')
@@ -440,3 +485,5 @@ def getFitbitCalories(date):
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0')
+
+# http://192.168.100.6:5000/

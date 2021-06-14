@@ -141,6 +141,18 @@ def addRecord(record):
         session.close()
 
 
+def getAll(ModelClass):
+    try:
+        session = SessionLocal()
+        result = database.getAll(session, ModelClass)
+        return result
+    except Exception as error:
+        session.rollback
+        raise Exception(f'Error:{error}')
+    finally:
+        session.close()
+
+
 def updateFitbitUser(fitbitUserId, fitbitUserJson):
     try:
         session = SessionLocal()

@@ -31,6 +31,11 @@ def get(session, value, ModelField, ModelClass):
     return result
 
 
+def getAll(session,  ModelClass):
+    result = session.query(ModelClass).all()
+    return result
+
+
 def update(session, id, newRecord, ModelId, ModelClass):
     record = session.query(ModelClass).filter(ModelId == id).first()
     record = newRecord
