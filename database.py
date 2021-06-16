@@ -36,14 +36,17 @@ def getAll(session,  ModelClass):
     return result
 
 
-def update(session, id, newRecord, ModelId, ModelClass):
-    record = session.query(ModelClass).filter(ModelId == id).first()
-    record = newRecord
-    session.add(record)
-
-    return record
-
-
 def getAllByField(session, value, ModelClass, ModelField):
     results = session.query(ModelClass).filter(ModelField == value).all()
     return results
+
+
+def getByFields(session, filters, ModelClass):
+    results = session.query(ModelClass).filter(*filters)
+    return results
+
+
+def update(session, value, ModelFieldToUpdate, ModelClass, fieldToQuery, ModelFieldToQuery):
+    session.query(ModelClass).filter(ModelFieldToQuery == fieldToQuery).update({
+        ModelFieldToUpdate: value
+    })

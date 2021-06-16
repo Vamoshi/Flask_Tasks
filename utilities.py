@@ -2,9 +2,6 @@
 import base64
 from datetime import datetime
 
-# User defined modules
-from repository import getFitbitUser
-
 
 def base64EncodeSecrets(id, secret):
     secretPair = f"{id}:{secret}"

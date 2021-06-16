@@ -62,14 +62,6 @@ class Users(Base):
     user_id = Column(Integer, primary_key=True)
     email = Column(Text, nullable=False, unique=True)
     password = Column(Text, nullable=False)
-    # user_steps = relationship("UsersSteps", backref="Users")
-    # user_sleep = relationship("UserSleep", backref="Users")
-    # user_activity_calories = relationship(
-    #     "UserCalories", backref="Users"
-    # )
-    # fitbit_users = relationship(
-    #     "FitbitUsers", uselist=False, backref="Users"
-    # )
 
 
 class Result():

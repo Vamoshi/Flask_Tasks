@@ -1,6 +1,6 @@
 from datetime import datetime
 from models import UserCalories, UserSleep, UserSteps
-from repository import addRecord
+from repository import addDatabaseRecord
 import requests
 
 
@@ -17,7 +17,7 @@ def addFitbitSleep(userId, accessToken, fitbit_api_url, user_1_2_url, date):
 
     sleepJson = req.json()
 
-    addRecord(
+    addDatabaseRecord(
         UserSleep(
             user_id=userId,
             total_minutes_asleep=sleepJson['summary']['totalMinutesAsleep'],
@@ -41,7 +41,7 @@ def addFitbitSteps(userId, accessToken, fitbit_api_url, user_1_2_url, date):
     stepsJson = req.json()
     steps = stepsJson["summary"]["steps"]
 
-    addRecord(
+    addDatabaseRecord(
         UserSteps(
             user_id=userId,
             steps=steps,
@@ -65,7 +65,7 @@ def addFitbitCalories(userId, accessToken, fitbit_api_url, user_1_2_url, date):
     caloriesSummary = caloriesJson["summary"]
     calories = caloriesSummary['calories']
 
-    addRecord(
+    addDatabaseRecord(
         UserCalories(
             user_id=userId,
             bmr=calories['bmr'],

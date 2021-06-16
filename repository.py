@@ -5,73 +5,9 @@ from database import SessionLocal
 import uuid
 
 
-def createUser(email, password):
+def addDatabaseRecord(record):
     try:
         session = SessionLocal()
-        record = Users(
-            email=email,
-            password=password
-        )
-        database.add(session, record)
-        session.commit()
-    except Exception as error:
-        session.rollback()
-        raise Exception(
-            f"Email: {email} \nPassword: {password} \nError: {error}"
-        )
-    finally:
-        session.close()
-
-
-def findAndAuthenticateUser(email, password):
-    try:
-        session = SessionLocal()
-        user = database.get(session, email, Users.email, Users)
-        if(user is None):
-            return Result(status_code=404, message="Email does not exist")
-        elif(password == user.password):
-            print("email and password are correct!!")
-            return Result(
-                result=user,
-                message="Email and password match"
-            )
-        return Result(status_code=400, message="Password is incorrect")
-    except Exception as error:
-        print(error)
-        print("couldn't get user id")
-        return Result(
-            status_code=500,
-            message="Bad request"
-        )
-    finally:
-        session.close()
-
-
-# def addUser(userJson):
-#     try:
-#         session = SessionLocal()
-#         database.add(session, userJson)
-#         session.commit()
-#     except Exception as error:
-#         session.rollback()
-#         raise Exception(
-#             f"Couldn't add user to database \nParameters: \nUserJson: {userJson} \nError:{error}"
-#         )
-#     finally:
-#         session.close()
-
-def createFitbitUser(userId, fitbitUserJson):
-    try:
-        session = SessionLocal()
-        record = FitbitUsers(
-            fitbit_user_id=fitbitUserJson['user_id'],
-            user_id=userId,
-            access_token=fitbitUserJson['access_token'],
-            expires_in=fitbitUserJson['expires_in'],
-            refresh_token=fitbitUserJson['refresh_token'],
-            scope=fitbitUserJson['scope'],
-            time_fetched=datetime.now(),
-        )
         database.add(session, record)
         session.commit()
     except Exception as error:
@@ -79,17 +15,6 @@ def createFitbitUser(userId, fitbitUserJson):
         raise Exception(f'Error:{error}')
     finally:
         session.close()
-
-
-def getFitbitUser(userId):
-    try:
-        session = SessionLocal()
-        result = database.get(session, userId)
-        session.close()
-        return result
-    except Exception as error:
-        print(error)
-        return None
 
 
 def getByField(value, ModelField, ModelClass):
@@ -115,27 +40,22 @@ def getByField(value, ModelField, ModelClass):
         )
 
 
-def getUserAccessToken(userId):
+def getByFields(filters, ModelClass):
     try:
         session = SessionLocal()
-        fitbitUser = database.get(
-            session, userId, FitbitUsers.user_id, FitbitUsers)
-        return fitbitUser.access_token
-    except Exception as error:
-        session.rollback()
-        raise Exception(f'Error:{error}')
-    finally:
-        session.close()
-
-
-def addRecord(record):
-    try:
-        session = SessionLocal()
-        database.add(session, record)
+        result = database.getByFields(session, filters, ModelClass)
         session.commit()
-    except Exception as error:
-        session.rollback()
-        raise Exception(f'Error:{error}')
+
+        print(f"RESULT IS ===== {result[0]}")
+        return Result(
+            result=result,
+            message="Successfully retrieved data"
+        )
+    except:
+        return Result(
+            status_code=500,
+            message="Unable to retrieve data"
+        )
     finally:
         session.close()
 
@@ -165,6 +85,58 @@ def getAllByField(value, ModelClass, ModelField):
     except:
         session.rollback()
         raise Exception(f'Failed to retrieve data')
+    finally:
+        session.close()
+
+
+def updateFieldByField(value, ModelFieldToUpdate, ModelClass, fieldToQuery, ModelFieldToQuery):
+    try:
+        session = SessionLocal()
+        database.update(
+            session, value, ModelFieldToUpdate, ModelClass, fieldToQuery, ModelFieldToQuery
+        )
+        session.commit()
+        return Result(
+            status_code=200,
+            message="Successfully updated record"
+        )
+    except:
+        session.rollback()
+        return Result(
+            status_code=409,
+            message="Record already exists"
+        )
+    finally:
+        session.close()
+
+
+def updateUserToken(userId):
+    access_token = uuid.uuid4().hex
+    try:
+        # Update User Access Token
+        session = SessionLocal()
+        record = database.get(
+            session, userId, UserAccessTokens.user_id, UserAccessTokens
+        )
+        record.access_token = access_token
+        database.add(session, record)
+        session.commit()
+        return access_token
+    except:
+        session.rollback()
+        try:
+            # Creates UserAccessToken record if it doesn't exist
+            session = SessionLocal()
+            record = UserAccessTokens(
+                user_id=userId,
+                access_token=access_token
+            )
+            database.add(session, record)
+            session.commit()
+            return access_token
+        except:
+            session.rollback()
+            raise Exception("Couldn't create User Access Token record")
     finally:
         session.close()
 
@@ -199,6 +171,31 @@ def updateFitbitUser(fitbitUserId, fitbitUserJson):
         session.close()
 
 
+def findAndAuthenticateUser(email, password):
+    try:
+        session = SessionLocal()
+        user = database.get(session, email, Users.email, Users)
+        if(user is None):
+            return Result(status_code=404, message="Email does not exist")
+        elif(password == user.password):
+            print("email and password are correct!!")
+            return Result(
+                result=user,
+                message="Email and password match",
+                status_code=201
+            )
+        return Result(status_code=400, message="Password is incorrect")
+    except Exception as error:
+        print(error)
+        print("couldn't get user id")
+        return Result(
+            status_code=500,
+            message="Bad request"
+        )
+    finally:
+        session.close()
+
+
 def checkUserToken(userId, access_token):
     try:
         session = SessionLocal()
@@ -228,34 +225,3 @@ def checkUserToken(userId, access_token):
         message="Tokens match",
         result=record
     )
-
-
-def updateUserToken(userId):
-    access_token = uuid.uuid4().hex
-    try:
-        # Update User Access Token
-        session = SessionLocal()
-        record = database.get(
-            session, userId, UserAccessTokens.user_id, UserAccessTokens
-        )
-        record.access_token = access_token
-        database.add(session, record)
-        session.commit()
-        return access_token
-    except:
-        session.rollback()
-        try:
-            # Creates UserAccessToken record if it doesn't exist
-            session = SessionLocal()
-            record = UserAccessTokens(
-                user_id=userId,
-                access_token=access_token
-            )
-            database.add(session, record)
-            session.commit()
-            return access_token
-        except:
-            session.rollback()
-            raise Exception("Couldn't create User Access Token record")
-    finally:
-        session.close()

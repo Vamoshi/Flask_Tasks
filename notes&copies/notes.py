@@ -36,3 +36,21 @@
 # data["expires_in"],
 # data["refresh_token"],
 # data["scope"]
+
+# req = request.authorization
+# try:
+#     userId = req['username']
+#     accessToken = req['password']
+# except:
+#     return "Headers are incorrect or missing"
+
+# userToken = checkUserToken(userId, accessToken)
+
+# if(userToken is None):
+#     return json.dumps(
+#         {
+#             "status_code": userToken.status_code,
+#             "message": userToken.message,
+#             "result": userToken.result
+#         }
+#     )
