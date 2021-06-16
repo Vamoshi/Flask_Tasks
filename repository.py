@@ -1,7 +1,8 @@
 from datetime import datetime
-from models import FitbitUsers, Result, Users
+from models import FitbitUsers, Result, UserAccessTokens, Users
 import database
 from database import SessionLocal
+import uuid
 
 
 def createUser(email, password):
@@ -97,8 +98,6 @@ def getByField(value, ModelField, ModelClass):
         result = database.get(session, value, ModelField, ModelClass)
         session.close()
 
-        print(f"RESULT IS ======= {result}")
-
         if(result is None):
             return Result(
                 status_code=404,
@@ -147,8 +146,25 @@ def getAll(ModelClass):
         result = database.getAll(session, ModelClass)
         return result
     except Exception as error:
-        session.rollback
+        session.rollback()
         raise Exception(f'Error:{error}')
+    finally:
+        session.close()
+
+
+def getAllByField(value, ModelClass, ModelField):
+    try:
+        session = SessionLocal()
+        results = database.getAllByField(
+            session, value, ModelClass, ModelField
+        )
+        return Result(
+            result=results,
+            message="Successfully retrieved data"
+        )
+    except:
+        session.rollback()
+        raise Exception(f'Failed to retrieve data')
     finally:
         session.close()
 
@@ -179,5 +195,67 @@ def updateFitbitUser(fitbitUserId, fitbitUserJson):
                 \nError:{error}
             """
         )
+    finally:
+        session.close()
+
+
+def checkUserToken(userId, access_token):
+    try:
+        session = SessionLocal()
+        record = database.get(
+            session, userId, UserAccessTokens.user_id, UserAccessTokens
+        )
+        if(record is None):
+            return Result(
+                status_code=404,
+                message="Record not found"
+            )
+    except Exception as error:
+        session.rollback()
+        raise Exception(f'Error:{error}')
+    finally:
+        session.close()
+
+    # Check that received access_token == fetched access_token
+    # If different, return error
+    if(record.access_token != access_token):
+        return Result(
+            status_code=403,
+            message="Error: Access Tokens do not match"
+        )
+
+    return Result(
+        message="Tokens match",
+        result=record
+    )
+
+
+def updateUserToken(userId):
+    access_token = uuid.uuid4().hex
+    try:
+        # Update User Access Token
+        session = SessionLocal()
+        record = database.get(
+            session, userId, UserAccessTokens.user_id, UserAccessTokens
+        )
+        record.access_token = access_token
+        database.add(session, record)
+        session.commit()
+        return access_token
+    except:
+        session.rollback()
+        try:
+            # Creates UserAccessToken record if it doesn't exist
+            session = SessionLocal()
+            record = UserAccessTokens(
+                user_id=userId,
+                access_token=access_token
+            )
+            database.add(session, record)
+            session.commit()
+            return access_token
+        except:
+            session.rollback()
+            raise Exception("Couldn't create User Access Token record")
     finally:
         session.close()

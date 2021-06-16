@@ -6,8 +6,8 @@ from datetime import datetime
 from repository import getFitbitUser
 
 
-def base64EncodeSecrets(clientId, clientSecret):
-    secretPair = f"{clientId}:{clientSecret}"
+def base64EncodeSecrets(id, secret):
+    secretPair = f"{id}:{secret}"
     secretBytes = secretPair.encode("ascii")
     secretBase64Bytes = base64.b64encode(secretBytes)
     encodedSecret = secretBase64Bytes.decode('ascii')

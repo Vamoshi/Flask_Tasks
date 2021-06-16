@@ -8,6 +8,13 @@ from sqlalchemy.types import DateTime
 Base = declarative_base()
 
 
+class UserAccessTokens(Base):
+    __tablename__ = "UserAccessTokens"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey('Users.user_id'), unique=True)
+    access_token = Column(Text)
+
+
 class UserSteps(Base):
     __tablename__ = "UserSteps"
 

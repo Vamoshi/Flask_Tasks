@@ -42,3 +42,8 @@ def update(session, id, newRecord, ModelId, ModelClass):
     session.add(record)
 
     return record
+
+
+def getAllByField(session, value, ModelClass, ModelField):
+    results = session.query(ModelClass).filter(ModelField == value).all()
+    return results
