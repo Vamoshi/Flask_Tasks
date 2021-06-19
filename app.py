@@ -1,6 +1,5 @@
 # Modules
 from datetime import datetime
-# from init import create_app
 from flask import Flask, request
 from urllib import parse
 import requests
@@ -45,8 +44,7 @@ models.Base.metadata.create_all(bind=engine)
 # initalize app + auth
 app = Flask(__name__)
 
-# init app
-# app = create_app()
+# create auths
 basicAuth = HTTPBasicAuth()
 tokenAuth = HTTPTokenAuth(scheme="Bearer")
 multiAuth = MultiAuth(basicAuth, tokenAuth)
