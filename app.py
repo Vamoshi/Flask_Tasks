@@ -61,7 +61,6 @@ def verify_password(username, password):
 
     if(username is not None and password is not None):
         if(userQuery.result is not None and check_password_hash(userQuery.result.password, password)):
-            print("IM INSIDE THE BASIC AUTH RETURN TRUE")
             return userQuery.result
         # User is not found
         return True
@@ -78,7 +77,6 @@ def verify_token(token):
     if(token is not None and token != ""):
         if(userTokenRecordQuery.result is not None):
             if(userTokenRecordQuery.result.access_token == token):
-                print("IM INSIDE THE TOKEN AUTH RETURN TRUE")
                 # TODO: Check if token has not expired
                 return userTokenRecordQuery.result
         # token does not exist
@@ -116,8 +114,6 @@ def index():
 @app.route('/v1/users', methods=['POST'])
 @multiAuth.login_required
 def users():
-    print(f"MULTI AUTH CURRENT USER TYPE IS {type(multiAuth.current_user())}")
-    print(f'MULTI AUTH CURRENT USER IS {multiAuth.current_user()}')
     if(multiAuth.current_user() is not None and type(multiAuth.current_user()) is not str):
         # Login credentials via credentials in Bearer
         if(type(multiAuth.current_user()) is Users):

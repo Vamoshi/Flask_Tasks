@@ -1,16 +1,17 @@
 from sqlalchemy import create_engine, engine
 from sqlalchemy.orm import sessionmaker
-from datetime import datetime
+from sqlalchemy_utils import database_exists, create_database
 
-# User defined modules
-from models import FitbitUsers
-
-
-SQLALCHEMY_DATABASE_URL = "sqlite:///./db.db"
+SQLALCHEMY_DATABASE_URL = "postgresql://postgres:Qatar123@localhost/flask_postgres"
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    SQLALCHEMY_DATABASE_URL
 )
+
+if(not database_exists(engine.url)):
+    create_database(engine.url)
+
+print(f"DATABASE EXISTS: {database_exists(engine.url)}")
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
