@@ -2,9 +2,14 @@
 from datetime import datetime
 from flask import Flask, redirect, request, url_for
 from urllib import parse
+import flask
+from flask.helpers import make_response
 import requests
 import json
-from database import engine
+from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
+from sqlalchemy.sql.sqltypes import String
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.wrappers import response
 
 # User defined modules
 from repository import *
@@ -12,8 +17,7 @@ from utilities import base64EncodeSecrets, tokenNeedRefresh
 from models import FitbitUsers,  UserCalories, UserSleep, UserSteps, Users
 import models
 from fitbitCalls import *
-
-app = Flask(__name__)
+from database import engine
 
 # URLS
 auth_base_url = "https://www.fitbit.com/oauth2/authorize"
@@ -39,159 +43,170 @@ client_id = "23B8ZW"
 client_secret = "262f6c5c63a9eecc269982e70a2b5c3e"
 
 
-# initiate database engine
+# initialize database
 models.Base.metadata.create_all(bind=engine)
+
+# initalize app + auth
+app = Flask(__name__)
+basicAuth = HTTPBasicAuth()
+tokenAuth = HTTPTokenAuth(scheme="Bearer")
+multiAuth = MultiAuth(basicAuth, tokenAuth)
+
+
+# Auth decorators
+@basicAuth.verify_password
+def verify_password(username, password):
+    userQuery = getOneByField(username, Users.email, Users)
+    # check if username and password are passed
+
+    if(username is not None and password is not None):
+        if(userQuery.result is not None and check_password_hash(userQuery.result.password, password)):
+            print("IM INSIDE THE BASIC AUTH RETURN TRUE")
+            return userQuery.result
+        # User is not found
+        return True
+    # Failed auth
+    return None
+
+
+@tokenAuth.verify_token
+def verify_token(token):
+    userTokenRecordQuery = getOneByField(
+        token, UserAccessTokens.access_token, UserAccessTokens
+    )
+    # check if token is passed
+    if(token is not None and token != ""):
+        if(userTokenRecordQuery.result is not None):
+            if(userTokenRecordQuery.result.access_token == token):
+                print("IM INSIDE THE TOKEN AUTH RETURN TRUE")
+                # TODO: Check if token has not expired
+                return userTokenRecordQuery.result
+        # token does not exist
+        return True
+    # Failed auth
+    return None
 
 
 @app.route('/')
 def index():
-    return "<h1>THIS IS THE INDEX</h1>"
-
-
-@app.route('/test/users', methods=["POST", "GET"])
-def users():
-    users = getAll(Users)
-
-    usersJson = {
-        "users": []
-    }
-
-    for user in users:
-        usersJson["users"].append(
-            {
-                "user_id": user.user_id,
-                "email": user.email,
-            }
-        )
-
-    return json.dumps(usersJson)
-
-
-@app.route('/v1/registration', methods=['POST'])
-def registration():
-    # retrieve email + password
     fromUser = request.json
 
-    email = fromUser['email']
-    password = fromUser['password']
-
-    # confirm that user does not exist
-    response = getByField(email, Users.email, Users)
-
-    # user does not exist in database
-    if(response.status_code == 404):
-        record = Users(
-            email=email,
-            password=password
-        )
-        addDatabaseRecord(record)
-        # get user record and get user id
-        newResponse = findAndAuthenticateUser(email, password)
-
-        jsonDict = {
-            "user_id": newResponse.result.user_id,
-            "status_code": newResponse.status_code,
-            "message": "Successfully created user"
-        }
-        return json.dumps(jsonDict)
-    else:
-        jsonDict = [None]
-        # user exists in database
-        if(response.status_code == 200):
-            jsonDict[0] = {
-                "status_code": response.status_code,
-                "user_id": -1,
-                "message": "User already exists"
-            }
-        # Something went wrong in database
-        else:
-            jsonDict[0] = {
-                "status_code": response.status_code,
-                "user_id": -1,
-                "message": response.message
-            }
-
-        return json.dumps(jsonDict[0])
+    return f"<h1>THIS IS THE INDEX {'user' in fromUser.keys()}</h1>"
 
 
-@app.route('/v1/login', methods=['POST'])
-def login():
-    # get username + password
-    fromUser = request.authorization
+# @app.route('/test/users', methods=["POST", "GET"])
+# def users():
+#     users = getAll(Users)
 
-    # check if user_id was passed
+#     usersJson = {
+#         "users": []
+#     }
+
+#     for user in users:
+#         usersJson["users"].append(
+#             {
+#                 "user_id": user.user_id,
+#                 "email": user.email,
+#             }
+#         )
+
+#     return json.dumps(usersJson)
+
+
+@app.route('/v1/users', methods=['POST'])
+@multiAuth.login_required
+def users():
+    print(f"MULTI AUTH CURRENT USER TYPE IS {type(multiAuth.current_user())}")
+    print(f'MULTI AUTH CURRENT USER IS {multiAuth.current_user()}')
+    if(multiAuth.current_user() is not None and type(multiAuth.current_user()) is not str):
+        # Login credentials via credentials in Bearer
+        if(type(multiAuth.current_user()) is Users):
+            # Update user token
+            userAccessToken = updateUserToken(basicAuth.current_user().user_id)
+            return json.dumps({
+                "status_code": 200,
+                "message": "user exists",
+                "user_id": basicAuth.current_user().user_id,
+                "access_token": userAccessToken
+            })
+
+        # Login via auth token
+        return json.dumps({
+            "status_code": 200,
+            "message": "token exists",
+            "user_id": tokenAuth.current_user().user_id,
+        })
+
+    # Register
+    fromUser = request.json
     try:
-        userId = request.form['user_id']
-    except:
-        userId = None
-
-    # Tried to use nonlocal keyword, but it doesn't work, so created mutable class
-    class Query:
-        user = ""
-
-    if(userId is not None and userId >= 0):
-        print(f"USER ID IS NOT NONE {userId}")
-        Query.user = getByField(userId, Users.user_id, Users)
-    else:
-        print("USER ID IS NONE, GETTING VIA EMAIL AND PASSWORD")
-        email = fromUser['username']
+        email = fromUser['email']
         password = fromUser['password']
-        Query.user = findAndAuthenticateUser(email, password)
+    except:
+        email = None
+        password = None
 
-    # user exists
-    if Query.user.status_code == 200:
-        # Update user token
-        userAccessToken = updateUserToken(Query.user.result.user_id)
+    if(email is not None and password is not None):
+        # get user if user in database
+        response = getOneByField(email, Users.email, Users)
+        # user does not exist in database
+        if(response.status_code == 404):
+            record = Users(
+                email=email,
+                password=generate_password_hash(password)
+            )
+            result = addDatabaseRecord(record)
 
-        jsonDict = {
-            "access_token": userAccessToken,
-            "status_code": Query.user.status_code,
-            "user_id": Query.user.result.user_id,
-            "message": Query.user.message,
-        }
-        return json.dumps(jsonDict)
+            return json.dumps({
+                "status_code": result.status_code,
+                "message": result.message
+            })
 
-    # user doesn't exist
-    jsonDict = {
-        "status_code": Query.user.status_code,
-        "user_id": -1,
-        "message": Query.user.message,
-    }
+        # user exists in database
+        else:
+            jsonDict = [None]
+            if(response.status_code == 200):
+                jsonDict[0] = {
+                    "status_code": response.status_code,
+                    "user_id": -1,
+                    "message": "User already exists"
+                }
+            # Something went wrong in database
+            else:
+                jsonDict[0] = {
+                    "status_code": response.status_code,
+                    "user_id": -1,
+                    "message": response.message
+                }
 
-    return json.dumps(jsonDict)
+            return json.dumps(jsonDict[0])
+
+    return json.dumps({
+        "message": "Error: Bad request",
+        "status_code": 400
+    })
 
 
 @app.route('/v1/fitbitconsent', methods=['POST'])
+@tokenAuth.login_required
 # Returns url for fitbit consent page
 def fitbitConsent():
+    fromUser = request.json
     try:
-        auth = request.authorization
-        userId = auth["username"]
-        access_token = auth["password"]
+        userId = fromUser['user_id']
     except:
-        return {
-            "status_code": 400,
-            "message": "Error: Bad request"
-        }
+        return json.dumps({
+            "status_code": 400
+        })
 
-    # Check if user_id, access_token pair exists
-    response = checkUserToken(userId, access_token)
-
-    if(response.status_code != 200):
-        jsonDict = {
-            "status_code": response.status_code,
-            "message": response.message,
-        }
-        json.dumps(jsonDict)
-
-    # TODO: Check if token needs refresh
+    # TODO: Check if fitbit token needs refresh
     # return empty string if doesn't need refresh or has been refreshed
     # else return fitbit consent page url
 
     return f"{auth_base_url}?response_type=code&client_id={client_id}&redirect_uri={parsed_redirect_url}&scope={scope}&state={userId}"
 
 
-@app.route('/v1/fitbitauthcode', methods=['POST', 'GET'])
+@ app.route('/v1/fitbitauthcode', methods=['POST', 'GET'])
 # Get Auth code from fitbit redirect url then exchange for access token
 def fitbitAuthCode():
     print("Was able to get Authorization code!")
@@ -233,7 +248,7 @@ def fitbitAuthCode():
     fitbitUserId = fitbitUserJson["user_id"]
 
     # get user & fitbitUser
-    fitbitUser = getByField(
+    fitbitUser = getOneByField(
         fitbitUserId, FitbitUsers.fitbit_user_id, FitbitUsers
     )
 
@@ -303,11 +318,11 @@ def fitbitAuthCode():
         """
 
 
-@app.route('/v1/refresh')
+@ app.route('/v1/refresh')
 # Refresh tokens
 def refresh():
     userId = request.json['user_id']
-    fitbitUser = getByField(userId, FitbitUsers, FitbitUsers.user_id)
+    fitbitUser = getOneByField(userId, FitbitUsers, FitbitUsers.user_id)
     encoded_secret = base64EncodeSecrets(client_id, client_secret)
     req = requests.post(
         token_base_url,
@@ -336,8 +351,9 @@ def refresh():
 
 # Routes to fetch data
 
-@app.route('/v1/users/<userId>/sleep', defaults={'sleepId': None})
-@app.route('/v1/users/<userId>/sleep/<sleepId>')
+@ app.route('/v1/users/<userId>/sleep', defaults={'sleepId': None})
+@ app.route('/v1/users/<userId>/sleep/<sleepId>')
+@tokenAuth.login_required
 def sleep(userId, sleepId):
     if(userId is None):
         return json.dumps({
@@ -369,22 +385,30 @@ def sleep(userId, sleepId):
         UserSleep.id == sleepId
     )
 
-    sleepQuery = getByFields(filters, UserSleep)
-    record = sleepQuery.result[0]
+    sleepQuery = getOneByFields(filters, UserSleep)
+
+    if(sleepQuery.result is not None):
+        record = sleepQuery.result
+        return json.dumps({
+            "status_code": sleepQuery.status_code,
+            "result": {
+                "total_minutes_asleep": record.total_minutes_asleep,
+                "total_time_in_bed": record.total_time_in_bed,
+                "date": str(record.date)
+            },
+            "message": sleepQuery.message
+        })
 
     return json.dumps({
         "status_code": sleepQuery.status_code,
-        "result": {
-            "total_minutes_asleep": record.total_minutes_asleep,
-            "total_time_in_bed": record.total_time_in_bed,
-            "date": str(record.date)
-        },
+        "result": None,
         "message": sleepQuery.message
     })
 
 
-@app.route('/v1/users/<userId>/steps', defaults={'stepsId': None})
-@app.route('/v1/users/<userId>/steps/<stepsId>')
+@ app.route('/v1/users/<userId>/steps', defaults={'stepsId': None})
+@ app.route('/v1/users/<userId>/steps/<stepsId>')
+@tokenAuth.login_required
 def steps(userId, stepsId):
     if(userId is None):
         return json.dumps({
@@ -414,21 +438,30 @@ def steps(userId, stepsId):
         UserSteps.id == stepsId
     )
 
-    stepsQuery = getByFields(filters, UserSteps)
-    record = stepsQuery.result[0]
+    stepsQuery = getOneByFields(filters, UserSteps)
+
+    if(stepsQuery.result is not None):
+        record = stepsQuery.result
+
+        return json.dumps({
+            "status_code": stepsQuery.status_code,
+            "result": {
+                "steps": record.steps,
+                "date": str(record.date)
+            },
+            "message": stepsQuery.message
+        })
 
     return json.dumps({
         "status_code": stepsQuery.status_code,
-        "result": {
-            "steps": record.steps,
-            "date": str(record.date)
-        },
+        "result": None,
         "message": stepsQuery.message
     })
 
 
-@app.route('/v1/users/<userId>/calories', defaults={'caloriesId': None})
-@app.route('/v1/users/<userId>/calories/<caloriesId>')
+@ app.route('/v1/users/<userId>/calories', defaults={'caloriesId': None})
+@ app.route('/v1/users/<userId>/calories/<caloriesId>')
+@tokenAuth.login_required
 def calories(userId, caloriesId):
     if(userId is None):
         return json.dumps({
@@ -437,7 +470,8 @@ def calories(userId, caloriesId):
         })
     elif(caloriesId is None):
         caloriesRecords = getAllByField(
-            userId, UserCalories, UserCalories.user_id)
+            userId, UserCalories, UserCalories.user_id
+        )
 
         caloriesJson = {
             "result": [],
@@ -461,16 +495,23 @@ def calories(userId, caloriesId):
         UserCalories.id == caloriesId
     )
 
-    caloriesQuery = getByFields(filters, UserCalories)
-    record = caloriesQuery.result[0]
+    caloriesQuery = getOneByFields(filters, UserCalories)
+
+    if(caloriesQuery.result is not None):
+        record = caloriesQuery.result
+        return json.dumps({
+            "status_code": caloriesQuery.status_code,
+            "result": {
+                "bmr": record.bmr,
+                "calories_total": record.calories_total,
+                "date": str(record.date)
+            },
+            "message": caloriesQuery.message
+        })
 
     return json.dumps({
         "status_code": caloriesQuery.status_code,
-        "result": {
-            "bmr": record.bmr,
-            "calories_total": record.calories_total,
-            "date": str(record.date)
-        },
+        "result": None,
         "message": caloriesQuery.message
     })
 

@@ -13,6 +13,7 @@ class UserAccessTokens(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey('Users.user_id'), unique=True)
     access_token = Column(Text)
+    time_generated = Column(DateTime)
 
 
 class UserSteps(Base):

@@ -26,7 +26,7 @@ def add(session, record):
 # ModelField is the Model's field that we are comparing to, e.g Users.user_id
 # ModelClass is the table we will search the id from, e.g Users
 # ModelClass corresponds to a table in the database
-def get(session, value, ModelField, ModelClass):
+def getOne(session, value, ModelField, ModelClass):
     result = session.query(ModelClass).filter(ModelField == value).first()
     return result
 
@@ -41,8 +41,8 @@ def getAllByField(session, value, ModelClass, ModelField):
     return results
 
 
-def getByFields(session, filters, ModelClass):
-    results = session.query(ModelClass).filter(*filters)
+def getOneByFields(session, filters, ModelClass):
+    results = session.query(ModelClass).filter(*filters).first()
     return results
 
 

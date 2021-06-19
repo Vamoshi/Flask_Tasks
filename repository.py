@@ -10,28 +10,35 @@ def addDatabaseRecord(record):
         session = SessionLocal()
         database.add(session, record)
         session.commit()
-    except Exception as error:
+        return Result(
+            status_code=201,
+            message="Successfully added resource"
+        )
+    except:
         session.rollback()
-        raise Exception(f'Error:{error}')
+        return Result(
+            status_code=500,
+            message="Could not add resource"
+        )
     finally:
         session.close()
 
 
-def getByField(value, ModelField, ModelClass):
+def getOneByField(value, ModelField, ModelClass):
     try:
         session = SessionLocal()
-        result = database.get(session, value, ModelField, ModelClass)
+        result = database.getOne(session, value, ModelField, ModelClass)
         session.close()
 
         if(result is None):
             return Result(
                 status_code=404,
-                message="record does not exist"
+                message="Resource does not exist"
             )
 
         return Result(
             result=result,
-            message="record exists"
+            message="resource exists"
         )
     except:
         return Result(
@@ -40,18 +47,25 @@ def getByField(value, ModelField, ModelClass):
         )
 
 
-def getByFields(filters, ModelClass):
+def getOneByFields(filters, ModelClass):
     try:
         session = SessionLocal()
-        result = database.getByFields(session, filters, ModelClass)
+        result = database.getOneByFields(session, filters, ModelClass)
         session.commit()
 
-        print(f"RESULT IS ===== {result[0]}")
+        if(result is None):
+            return Result(
+                result=result,
+                message="Resource does not exist",
+                status_code=404
+            )
+
         return Result(
             result=result,
             message="Successfully retrieved data"
         )
     except:
+
         return Result(
             status_code=500,
             message="Unable to retrieve data"
@@ -98,13 +112,13 @@ def updateFieldByField(value, ModelFieldToUpdate, ModelClass, fieldToQuery, Mode
         session.commit()
         return Result(
             status_code=200,
-            message="Successfully updated record"
+            message="Successfully updated resource"
         )
     except:
         session.rollback()
         return Result(
             status_code=409,
-            message="Record already exists"
+            message="Resource already exists"
         )
     finally:
         session.close()
@@ -115,7 +129,7 @@ def updateUserToken(userId):
     try:
         # Update User Access Token
         session = SessionLocal()
-        record = database.get(
+        record = database.getOne(
             session, userId, UserAccessTokens.user_id, UserAccessTokens
         )
         record.access_token = access_token
@@ -136,7 +150,7 @@ def updateUserToken(userId):
             return access_token
         except:
             session.rollback()
-            raise Exception("Couldn't create User Access Token record")
+            raise Exception("Couldn't create User Access Token resource")
     finally:
         session.close()
 
@@ -145,7 +159,7 @@ def updateFitbitUser(fitbitUserId, fitbitUserJson):
     try:
         session = SessionLocal()
 
-        fitbitUser = database.get(
+        fitbitUser = database.getOne(
             session, fitbitUserId, FitbitUsers.fitbit_user_id, FitbitUsers
         )
         fitbitUser.access_token = fitbitUserJson['access_token']
@@ -160,7 +174,7 @@ def updateFitbitUser(fitbitUserId, fitbitUserJson):
         session.rollback()
         raise Exception(
             f"""
-                Couldn't update Fitbit User record 
+                Couldn't update Fitbit User resource 
                 \nParameters: 
                 \nUserId:{fitbitUserId} 
                 \nUserJson: {fitbitUserJson} 
@@ -174,7 +188,7 @@ def updateFitbitUser(fitbitUserId, fitbitUserJson):
 def findAndAuthenticateUser(email, password):
     try:
         session = SessionLocal()
-        user = database.get(session, email, Users.email, Users)
+        user = database.getOne(session, email, Users.email, Users)
         if(user is None):
             return Result(status_code=404, message="Email does not exist")
         elif(password == user.password):
@@ -199,13 +213,13 @@ def findAndAuthenticateUser(email, password):
 def checkUserToken(userId, access_token):
     try:
         session = SessionLocal()
-        record = database.get(
+        record = database.getOne(
             session, userId, UserAccessTokens.user_id, UserAccessTokens
         )
         if(record is None):
             return Result(
                 status_code=404,
-                message="Record not found"
+                message="Resource not found"
             )
     except Exception as error:
         session.rollback()

@@ -54,3 +54,60 @@
 #             "result": userToken.result
 #         }
 #     )
+
+
+# @auth.login_required
+# @app.route('/v1/users', methods=['POST'])
+# def users():
+#     # If email and password are passed in json body, it means it's a registration
+#     fromUser = request.json
+
+#     try:
+#         email = fromUser['email']
+#         password = fromUser['password']
+#     except:
+#         email = None
+#         password = None
+
+#     if(email is not None and password is not None):
+#         # register
+#         # confirm that user does not exist
+#         response = getByField(email, Users.email, Users)
+#         # user does not exist in database
+#         if(response.status_code == 404):
+#             record = Users(
+#                 email=email,
+#                 password=password
+#             )
+#             addDatabaseRecord(record)
+#             # get user record and get user id
+#             newResponse = findAndAuthenticateUser(email, password)
+
+#             jsonDict = {
+#                 "user_id": newResponse.result.user_id,
+#                 "status_code": newResponse.status_code,
+#                 "message": "Successfully created user"
+#             }
+#             return json.dumps(jsonDict)
+#         else:
+#             jsonDict = [None]
+#             # user exists in database
+#             if(response.status_code == 200):
+#                 jsonDict[0] = {
+#                     "status_code": response.status_code,
+#                     "user_id": -1,
+#                     "message": "User already exists"
+#                 }
+#             # Something went wrong in database
+#             else:
+#                 jsonDict[0] = {
+#                     "status_code": response.status_code,
+#                     "user_id": -1,
+#                     "message": response.message
+#                 }
+
+#             return json.dumps(jsonDict[0])
+#     # login then return token to user
+#     elif(auth.current_user() is not None):
+#         # generate a token
+#         return

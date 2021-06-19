@@ -73,6 +73,100 @@ def index():
 # def index():
 
 
+@ app.route('/v1/registration', methods=['POST'])
+def registration():
+    # retrieve email + password
+    fromUser = request.json
+
+    email = fromUser['email']
+    password = fromUser['password']
+
+    # confirm that user does not exist
+    response = getByField(email, Users.email, Users)
+
+    # user does not exist in database
+    if(response.status_code == 404):
+        record = Users(
+            email=email,
+            password=password
+        )
+        addDatabaseRecord(record)
+        # get user record and get user id
+        newResponse = findAndAuthenticateUser(email, password)
+
+        jsonDict = {
+            "user_id": newResponse.result.user_id,
+            "status_code": newResponse.status_code,
+            "message": "Successfully created user"
+        }
+        return json.dumps(jsonDict)
+    else:
+        jsonDict = [None]
+        # user exists in database
+        if(response.status_code == 200):
+            jsonDict[0] = {
+                "status_code": response.status_code,
+                "user_id": -1,
+                "message": "User already exists"
+            }
+        # Something went wrong in database
+        else:
+            jsonDict[0] = {
+                "status_code": response.status_code,
+                "user_id": -1,
+                "message": response.message
+            }
+
+        return json.dumps(jsonDict[0])
+
+
+@ app.route('/v1/login', methods=['POST'])
+def login():
+    # get username + password
+    fromUser = request.authorization
+
+    # check if user_id was passed
+    try:
+        userId = request.form['user_id']
+    except:
+        userId = None
+
+    # Tried to use nonlocal keyword, but it doesn't work, so created mutable class
+    class Query:
+        user = ""
+
+    if(userId is not None and userId >= 0):
+        print(f"USER ID IS NOT NONE {userId}")
+        Query.user = getByField(userId, Users.user_id, Users)
+    else:
+        print("USER ID IS NONE, GETTING VIA EMAIL AND PASSWORD")
+        email = fromUser['username']
+        password = fromUser['password']
+        Query.user = findAndAuthenticateUser(email, password)
+
+    # user exists
+    if Query.user.status_code == 200:
+        # Update user token
+        userAccessToken = updateUserToken(Query.user.result.user_id)
+
+        jsonDict = {
+            "access_token": userAccessToken,
+            "status_code": Query.user.status_code,
+            "user_id": Query.user.result.user_id,
+            "message": Query.user.message,
+        }
+        return json.dumps(jsonDict)
+
+    # user doesn't exist
+    jsonDict = {
+        "status_code": Query.user.status_code,
+        "user_id": -1,
+        "message": Query.user.message,
+    }
+
+    return json.dumps(jsonDict)
+
+
 @app.route('/consentpage')
 def consentPage():
     redirect_url = parse.quote_plus(f"{flask_base_url}/code")
