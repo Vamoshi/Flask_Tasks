@@ -1,0 +1,22 @@
+version: "3.9"
+services:
+  db:
+    image: postgres
+    environment:
+      POSTGRES_PASSWORD: Qatar123
+      POSTGRES_USER: postgres
+      POSTGRES_DB: flask_postgres
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    expose:
+      - "5433"
+    ports:
+      - "5433:5433"
+    command: -p 5433
+
+  web:
+    image: vamoshi/flask-postgres:1.0
+    depends_on:
+      - db
+    ports:
+      - "5000:5000"
