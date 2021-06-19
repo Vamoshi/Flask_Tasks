@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy_utils import database_exists, create_database
 
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:Qatar123@localhost/flask_postgres"
+SQLALCHEMY_DATABASE_URL = "postgresql+psycopg2://postgres:Qatar123@postgres:5433/flask_postgres"
 
 engine = create_engine(
     SQLALCHEMY_DATABASE_URL

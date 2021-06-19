@@ -1,15 +1,12 @@
 # Modules
 from datetime import datetime
-from flask import Flask, redirect, request, url_for
+# from init import create_app
+from flask import Flask, request
 from urllib import parse
-import flask
-from flask.helpers import make_response
 import requests
 import json
 from flask_httpauth import HTTPBasicAuth, HTTPTokenAuth, MultiAuth
-from sqlalchemy.sql.sqltypes import String
 from werkzeug.security import generate_password_hash, check_password_hash
-from werkzeug.wrappers import response
 
 # User defined modules
 from repository import *
@@ -45,9 +42,11 @@ client_secret = "262f6c5c63a9eecc269982e70a2b5c3e"
 
 # initialize database
 models.Base.metadata.create_all(bind=engine)
-
 # initalize app + auth
 app = Flask(__name__)
+
+# init app
+# app = create_app()
 basicAuth = HTTPBasicAuth()
 tokenAuth = HTTPTokenAuth(scheme="Bearer")
 multiAuth = MultiAuth(basicAuth, tokenAuth)
@@ -87,28 +86,7 @@ def verify_token(token):
 
 @app.route('/')
 def index():
-    fromUser = request.json
-
-    return f"<h1>THIS IS THE INDEX {'user' in fromUser.keys()}</h1>"
-
-
-# @app.route('/test/users', methods=["POST", "GET"])
-# def users():
-#     users = getAll(Users)
-
-#     usersJson = {
-#         "users": []
-#     }
-
-#     for user in users:
-#         usersJson["users"].append(
-#             {
-#                 "user_id": user.user_id,
-#                 "email": user.email,
-#             }
-#         )
-
-#     return json.dumps(usersJson)
+    return f"<h1>THIS IS THE INDEX</h1>"
 
 
 @app.route('/v1/users', methods=['POST'])
