@@ -17,7 +17,7 @@ services:
 
   web:
     container_name: flask_server
-    image: vamoshi/flask-postgres:1.0
+    image: vamoshi/flask-postgres:1.1
     depends_on:
       - db
     ports:

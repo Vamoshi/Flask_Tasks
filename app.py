@@ -19,7 +19,7 @@ from database import engine
 auth_base_url = "https://www.fitbit.com/oauth2/authorize"
 token_base_url = "https://api.fitbit.com/oauth2/token"
 flask_base_url = "http://127.0.0.1:5000"
-redirect_url = f"{flask_base_url}/fitbit/code"
+redirect_url = f"{flask_base_url}/v1/fitbitauthcode"
 parsed_redirect_url = parse.quote_plus(redirect_url)
 fitbit_api_url = "https://api.fitbit.com"
 
@@ -74,10 +74,15 @@ def verify_token(token):
     if(token is not None and token != ""):
         if(userTokenRecordQuery.result is not None):
             if(userTokenRecordQuery.result.access_token == token):
-                # TODO: Check if token has not expired
+                today = datetime.now()
+                secondsElapsed = (
+                    (today - userTokenRecordQuery.result.time_generated).total_seconds()
+                )
+                if(secondsElapsed >= 28800):
+                    return None
                 return userTokenRecordQuery.result
         # token does not exist
-        return True
+        return False
     # Failed auth
     return None
 
@@ -154,8 +159,8 @@ def users():
             return json.dumps(jsonDict[0])
 
     return json.dumps({
-        "message": "Error: Bad request",
-        "status_code": 400
+        "message": "Error: User not found",
+        "status_code": 404
     })
 
 

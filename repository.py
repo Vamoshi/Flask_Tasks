@@ -133,6 +133,7 @@ def updateUserToken(userId):
             session, userId, UserAccessTokens.user_id, UserAccessTokens
         )
         record.access_token = access_token
+        record.time_generated = datetime.now()
         database.add(session, record)
         session.commit()
         return access_token
@@ -143,7 +144,8 @@ def updateUserToken(userId):
             session = SessionLocal()
             record = UserAccessTokens(
                 user_id=userId,
-                access_token=access_token
+                access_token=access_token,
+                time_generated=datetime.now()
             )
             database.add(session, record)
             session.commit()

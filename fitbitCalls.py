@@ -69,6 +69,7 @@ def addFitbitCalories(userId, accessToken, fitbit_api_url, user_1_2_url, date):
         UserCalories(
             user_id=userId,
             bmr=calories['bmr'],
-            calories_total=calories['total']
+            calories_total=calories['total'],
+            date=datetime.strptime(date, '%Y-%m-%d')
         )
     )
